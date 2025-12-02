@@ -234,8 +234,162 @@ fix: resolve database session management issue in background tasks
 
 ---
 
+## Bug #3: None Metric Value 类型转换错误
+
+### 问题描述
+```
+TypeError: float() argument must be a string or a real number, not 'NoneType'
+```
+
+实验运行时后端报错，无法处理 metric value 为 None 的情况。
+
+### 根本原因
+
+在处理 AIDE 生成的节点时，代码假设如果 `node.metric` 存在，那么 `node.metric.value` 就一定有值：
+
+```python
+# ❌ 错误：只检查了 metric 存在，没有检查 value
+metric_value=float(node.metric.value) if node.metric else None
+```
+
+但实际上 AIDE 可能会创建 metric 对象，但 value 仍然是 None（例如代码执行失败、评估失败等情况）。
+
+**错误发生的场景**：
+1. AIDE 执行代码但没有产生有效的评估结果
+2. 代码运行出错，无法计算 metric
+3. 评估函数返回 None
+4. 节点被标记为 buggy，metric 为空
+
+### 解决方案
+
+添加对 `metric.value` 的 None 检查：
+
+```python
+# ✅ 正确：同时检查 metric 和 value
+metric_value=float(node.metric.value) if (node.metric and node.metric.value is not None) else None
+```
+
+**修复位置**（三处）：
+
+1. **create_node** - 创建节点时
+```python
+metric_value=float(node.metric.value) if (node.metric and node.metric.value is not None) else None
+```
+
+2. **best_metric_value** - 获取最佳指标时
+```python
+best_metric_value = float(best_node.metric.value) if (best_node and best_node.metric and best_node.metric.value is not None) else None
+```
+
+3. **journal_data** - 收集日志数据时
+```python
+"metric": float(node.metric.value) if (node.metric and node.metric.value is not None) else None
+```
+
+### 防御性编程最佳实践
+
+#### ❌ 脆弱的代码
+```python
+# 假设链式属性都存在
+value = obj.attr1.attr2.attr3
+
+# 只检查第一层
+value = float(obj.metric.value) if obj.metric else None
+```
+
+#### ✅ 健壮的代码
+```python
+# 检查所有层级
+value = obj.attr1.attr2.attr3 if (obj and obj.attr1 and obj.attr1.attr2) else None
+
+# 完整检查
+value = float(obj.metric.value) if (obj.metric and obj.metric.value is not None) else None
+```
+
+### Python 特性说明
+
+**None 是特殊的**：
+```python
+if obj:           # obj 为 None 时为 False
+if obj is None:   # 显式检查 None（推荐）
+if obj is not None:  # 显式检查非 None
+
+# 0, False, "", [] 等也是 False，但不是 None！
+if value:  # 危险！0 也会被判断为 False
+if value is not None:  # 安全！只排除 None
+```
+
+### 相关文件
+
+- `backend/services/experiment_service.py`
+
+### 提交信息
+
+```
+fix: handle None metric values in experiment service
+
+- Add additional None check for node.metric.value before float conversion
+- Prevent 'float() argument must be a string or a real number' error
+- Check both node.metric existence and node.metric.value is not None
+```
+
+### 验证测试
+
+修复后应验证：
+1. ✅ 实验可以正常运行
+2. ✅ 失败的节点不会导致崩溃
+3. ✅ None metric 正确保存为 NULL
+4. ✅ 最佳节点选择不报错
+5. ✅ Journal 数据正确收集
+
+### 扩展思考
+
+这个问题提醒我们：
+1. **不要假设对象结构** - 即使文档说会有某个属性，实际运行时可能为 None
+2. **类型提示不够** - Python 的 Optional[float] 不能防止运行时错误
+3. **测试边界情况** - 需要测试 None、空值、异常等边界情况
+4. **日志很重要** - 如果没有日志，很难定位是哪个节点的 metric 为 None
+
+### 未来改进建议
+
+1. **添加类型守卫**：
+```python
+def safe_float(value) -> Optional[float]:
+    """Safely convert to float, return None if not possible"""
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+```
+
+2. **使用数据类验证**：
+```python
+from pydantic import BaseModel, validator
+
+class MetricValue(BaseModel):
+    value: Optional[float]
+    
+    @validator('value')
+    def validate_value(cls, v):
+        if v is not None and not isinstance(v, (int, float)):
+            raise ValueError('Value must be numeric')
+        return v
+```
+
+3. **添加单元测试**：
+```python
+def test_none_metric_handling():
+    node = Node(metric=Metric(value=None))
+    assert safe_get_metric_value(node) is None
+```
+
+---
+
 **更新日期**: 2024-12-02  
 **修复版本**: 
-- Bug #1: commit ace76cc  
-- Bug #2: commit d6638e9  
-**影响范围**: 前端页面加载、实验详情展示、后台任务执行
+- Bug #1: commit ace76cc (前端循环依赖)
+- Bug #2: commit d6638e9 (数据库会话管理)
+- Bug #3: commit cb07036 (None metric 类型转换)
+**影响范围**: 前端页面加载、实验详情展示、后台任务执行、实验运行
