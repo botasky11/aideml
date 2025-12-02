@@ -219,7 +219,7 @@ class ExperimentService:
                         step=node.step,
                         code=str(node.code),
                         plan=node.plan,
-                        metric_value=float(node.metric.value) if node.metric else None,
+                        metric_value=float(node.metric.value) if (node.metric and node.metric.value is not None) else None,
                         is_buggy=node.is_buggy,
                         term_out=node.term_out,
                         analysis=node.analysis,
@@ -228,14 +228,14 @@ class ExperimentService:
             # Get best solution
             best_node = aide_exp.journal.get_best_node()
             best_solution_code = str(best_node.code) if best_node else None
-            best_metric_value = float(best_node.metric.value) if best_node and best_node.metric else None
+            best_metric_value = float(best_node.metric.value) if (best_node and best_node.metric and best_node.metric.value is not None) else None
             
             # Collect journal data
             journal_data = [
                 {
                     "step": node.step,
                     "code": str(node.code),
-                    "metric": float(node.metric.value) if node.metric else None,
+                    "metric": float(node.metric.value) if (node.metric and node.metric.value is not None) else None,
                     "is_buggy": node.is_buggy,
                 }
                 for node in aide_exp.journal.nodes
