@@ -139,7 +139,7 @@ async def run_experiment(
     
     # Run experiment in background with independent session
     async def run_background_task():
-        from backend.database import async_session_maker
+        from backend.database.base import async_session_maker
         
         async def websocket_callback(message):
             if experiment_id in active_connections:

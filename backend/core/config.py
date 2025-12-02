@@ -1,6 +1,14 @@
 from pydantic_settings import BaseSettings
 from typing import Optional
 import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env file from project root into environment variables
+# This ensures that os.getenv() calls in AIDE code can access these variables
+env_path = Path(__file__).parent.parent.parent / ".env"
+if env_path.exists():
+    load_dotenv(env_path)
 
 
 class Settings(BaseSettings):
