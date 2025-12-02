@@ -8,7 +8,7 @@ from pathlib import Path
 import logging
 
 from backend.database import get_db
-from backend.schemas import ExperimentCreate, ExperimentUpdate, ExperimentResponse, NodeResponse
+from backend.schemas import ExperimentCreate, ExperimentUpdate, ExperimentResponse, NodeResponse, ExperimentStatus
 from backend.services.experiment_service import ExperimentService
 from backend.core.config import settings
 
@@ -137,15 +137,34 @@ async def run_experiment(
     if experiment.status == "running":
         raise HTTPException(status_code=400, detail="Experiment is already running")
     
-    # Run experiment in background
-    async def websocket_callback(message):
-        if experiment_id in active_connections:
+    # Run experiment in background with independent session
+    async def run_background_task():
+        from backend.database import async_session_maker
+        
+        async def websocket_callback(message):
+            if experiment_id in active_connections:
+                try:
+                    await active_connections[experiment_id].send_json(message)
+                except Exception as e:
+                    logger.error(f"Error sending WebSocket message: {e}")
+        
+        # Create independent database session for background task
+        async with async_session_maker() as bg_db:
             try:
-                await active_connections[experiment_id].send_json(message)
+                bg_service = ExperimentService(bg_db)
+                await bg_service.run_experiment_async(experiment_id, websocket_callback)
             except Exception as e:
-                logger.error(f"Error sending WebSocket message: {e}")
+                logger.error(f"Background task error: {e}")
+                # Try to update experiment status to failed
+                try:
+                    await bg_service.update_experiment(
+                        experiment_id,
+                        ExperimentUpdate(status=ExperimentStatus.FAILED, error_message=str(e))
+                    )
+                except Exception:
+                    pass
     
-    asyncio.create_task(service.run_experiment_async(experiment_id, websocket_callback))
+    asyncio.create_task(run_background_task())
     
     return {"message": "Experiment started", "experiment_id": experiment_id}
 
