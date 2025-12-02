@@ -34,6 +34,21 @@ const getStatusColor = (status: ExperimentStatus) => {
   }
 };
 
+const getStatusText = (status: ExperimentStatus) => {
+  switch (status) {
+    case 'completed':
+      return '已完成';
+    case 'running':
+      return '运行中';
+    case 'failed':
+      return '失败';
+    case 'pending':
+      return '待运行';
+    default:
+      return status;
+  }
+};
+
 export function Dashboard() {
   const { data: experiments, isLoading, refetch } = useQuery({
     queryKey: ['experiments'],
@@ -42,7 +57,7 @@ export function Dashboard() {
   });
 
   const handleDelete = async (experimentId: string) => {
-    if (window.confirm('Are you sure you want to delete this experiment?')) {
+    if (window.confirm('确定要删除这个实验吗？')) {
       await experimentAPI.delete(experimentId);
       refetch();
     }
@@ -52,13 +67,13 @@ export function Dashboard() {
     <div className="container mx-auto py-8 px-4">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-4xl font-bold text-gray-900">AIDE ML Dashboard</h1>
-          <p className="text-gray-600 mt-2">Enterprise Machine Learning Engineering Agent</p>
+          <h1 className="text-4xl font-bold text-gray-900">智能数据挖掘助手</h1>
+          <p className="text-gray-600 mt-2">企业级机器学习工程代理</p>
         </div>
         <Link to="/experiments/new">
           <Button size="lg" className="gap-2">
             <Plus className="w-5 h-5" />
-            New Experiment
+            新建实验
           </Button>
         </Link>
       </div>
@@ -85,16 +100,16 @@ export function Dashboard() {
               <CardContent>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">Status</span>
+                    <span className="text-sm text-gray-500">状态</span>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(experiment.status as ExperimentStatus)}`}>
-                      {experiment.status}
+                      {getStatusText(experiment.status as ExperimentStatus)}
                     </span>
                   </div>
 
                   {experiment.status === 'running' && (
                     <div className="space-y-1">
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Progress</span>
+                        <span className="text-gray-500">进度</span>
                         <span className="font-medium">{Math.round(experiment.progress * 100)}%</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
@@ -104,27 +119,27 @@ export function Dashboard() {
                         />
                       </div>
                       <span className="text-xs text-gray-500">
-                        Step {experiment.current_step} / {experiment.num_steps}
+                        步骤 {experiment.current_step} / {experiment.num_steps}
                       </span>
                     </div>
                   )}
 
                   {experiment.best_metric_value && (
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500">Best Metric</span>
+                      <span className="text-sm text-gray-500">最佳指标</span>
                       <span className="text-sm font-medium">{experiment.best_metric_value.toFixed(4)}</span>
                     </div>
                   )}
 
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">Created</span>
-                    <span className="text-sm">{format(new Date(experiment.created_at), 'MMM d, yyyy')}</span>
+                    <span className="text-sm text-gray-500">创建时间</span>
+                    <span className="text-sm">{format(new Date(experiment.created_at), 'yyyy-MM-dd')}</span>
                   </div>
 
                   <div className="flex gap-2 pt-2">
                     <Link to={`/experiments/${experiment.id}`} className="flex-1">
                       <Button variant="outline" className="w-full">
-                        View Details
+                        查看详情
                       </Button>
                     </Link>
                     <Button
@@ -143,8 +158,8 @@ export function Dashboard() {
           {experiments?.length === 0 && (
             <div className="col-span-full flex flex-col items-center justify-center h-64 text-gray-500">
               <AlertCircle className="w-16 h-16 mb-4" />
-              <p className="text-xl font-medium">No experiments yet</p>
-              <p className="text-sm mt-2">Create your first experiment to get started</p>
+              <p className="text-xl font-medium">还没有实验</p>
+              <p className="text-sm mt-2">创建您的第一个实验开始使用</p>
             </div>
           )}
         </div>

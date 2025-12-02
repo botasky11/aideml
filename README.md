@@ -1,7 +1,7 @@
 <h1 align="center">AIDE ML — The Machine Learning Engineering Agent</h1>
 
 <p align="center"><em>
-LLM‑driven agent that writes, evaluates & improves machine‑learning code.
+基于大语言模型的智能机器学习工程代理，可自动编写、评估和改进机器学习代码
 </em></p>
 
 <p align="center">
@@ -16,7 +16,7 @@ LLM‑driven agent that writes, evaluates & improves machine‑learning code.
 <a href="https://docs.weco.ai/cli/getting-started?utm_source=aidemlrepo" target="_blank"><strong>Use in Production? Try Weco →</strong></a>
 </p>
 
-# What Is AIDE ML?
+# 什么是智能数据挖掘助手？
 
 **AIDE ML is the open‑source “reference build” of the AIDE algorithm**, a tree‑search agent that autonomously drafts, debugs and benchmarks code until a user‑defined metric is maximised (or minimised). It ships as a *research‑friendly* Python package with batteries‑included utilities (CLI, visualisation, config presets) so that academics and engineer‑researchers can **replicate the paper, test new ideas, or prototyping ML pipelines**.
 

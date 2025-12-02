@@ -91,7 +91,7 @@ export function ExperimentDetail() {
   if (!experiment) {
     return (
       <div className="container mx-auto py-8 px-4">
-        <p>Experiment not found</p>
+        <p>实验未找到</p>
       </div>
     );
   }
@@ -104,7 +104,7 @@ export function ExperimentDetail() {
         onClick={() => navigate('/')}
       >
         <ArrowLeft className="w-4 h-4 mr-2" />
-        Back to Dashboard
+        返回仪表盘
       </Button>
 
       {/* Header */}
@@ -117,13 +117,13 @@ export function ExperimentDetail() {
           {experiment.status === 'pending' && (
             <Button onClick={handleRun} className="gap-2">
               <Play className="w-4 h-4" />
-              Run Experiment
+              运行实验
             </Button>
           )}
           {experiment.best_solution_code && (
             <Button onClick={handleDownload} variant="outline" className="gap-2">
               <Download className="w-4 h-4" />
-              Download Solution
+              下载方案
             </Button>
           )}
         </div>
@@ -135,9 +135,9 @@ export function ExperimentDetail() {
           <CardContent className="pt-6">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-lg font-medium">Running...</span>
+                <span className="text-lg font-medium">运行中...</span>
                 <span className="text-lg font-bold">
-                  Step {experiment.current_step} / {experiment.num_steps}
+                  步骤 {experiment.current_step} / {experiment.num_steps}
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-3">
@@ -147,7 +147,7 @@ export function ExperimentDetail() {
                 />
               </div>
               <div className="text-sm text-gray-600">
-                Progress: {Math.round(experiment.progress * 100)}%
+                进度: {Math.round(experiment.progress * 100)}%
               </div>
             </div>
           </CardContent>
@@ -157,19 +157,24 @@ export function ExperimentDetail() {
       {/* Tabs */}
       <div className="border-b border-gray-200 mb-6">
         <nav className="-mb-px flex space-x-8">
-          {(['overview', 'code', 'metrics', 'logs'] as const).map((tab) => (
+          {[
+            { key: 'overview', label: '概览' },
+            { key: 'code', label: '代码' },
+            { key: 'metrics', label: '指标' },
+            { key: 'logs', label: '日志' }
+          ].map((tab) => (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key as any)}
               className={`
-                py-4 px-1 border-b-2 font-medium text-sm capitalize
-                ${activeTab === tab
+                py-4 px-1 border-b-2 font-medium text-sm
+                ${activeTab === tab.key
                   ? 'border-primary text-primary'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }
               `}
             >
-              {tab}
+              {tab.label}
             </button>
           ))}
         </nav>
@@ -181,23 +186,23 @@ export function ExperimentDetail() {
           <div className="grid gap-6 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Configuration</CardTitle>
+                <CardTitle>配置</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Goal</span>
+                  <span className="text-sm font-medium text-gray-500">目标</span>
                   <p className="mt-1">{experiment.goal}</p>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Evaluation Metric</span>
+                  <span className="text-sm font-medium text-gray-500">评估指标</span>
                   <p className="mt-1">{experiment.eval_metric}</p>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Model</span>
+                  <span className="text-sm font-medium text-gray-500">模型</span>
                   <p className="mt-1">{experiment.model_name || 'gpt-4-turbo'}</p>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Steps</span>
+                  <span className="text-sm font-medium text-gray-500">步数</span>
                   <p className="mt-1">{experiment.num_steps}</p>
                 </div>
               </CardContent>
@@ -205,16 +210,20 @@ export function ExperimentDetail() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Results</CardTitle>
+                <CardTitle>结果</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Status</span>
-                  <p className="mt-1 capitalize font-medium">{experiment.status}</p>
+                  <span className="text-sm font-medium text-gray-500">状态</span>
+                  <p className="mt-1 capitalize font-medium">{
+                    experiment.status === 'completed' ? '已完成' :
+                    experiment.status === 'running' ? '运行中' :
+                    experiment.status === 'failed' ? '失败' : '待运行'
+                  }</p>
                 </div>
                 {experiment.best_metric_value && (
                   <div>
-                    <span className="text-sm font-medium text-gray-500">Best Metric Value</span>
+                    <span className="text-sm font-medium text-gray-500">最佳指标值</span>
                     <p className="mt-1 text-2xl font-bold text-primary">
                       {experiment.best_metric_value.toFixed(6)}
                     </p>
@@ -222,7 +231,7 @@ export function ExperimentDetail() {
                 )}
                 {experiment.error_message && (
                   <div>
-                    <span className="text-sm font-medium text-red-500">Error</span>
+                    <span className="text-sm font-medium text-red-500">错误</span>
                     <p className="mt-1 text-sm text-red-600">{experiment.error_message}</p>
                   </div>
                 )}
@@ -236,10 +245,10 @@ export function ExperimentDetail() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Code className="w-5 h-5" />
-                Best Solution Code
+                最佳方案代码
               </CardTitle>
               <CardDescription>
-                The best performing code generated by AIDE ML
+                智能助手生成的最佳性能代码
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -257,7 +266,7 @@ export function ExperimentDetail() {
                 </SyntaxHighlighter>
               ) : (
                 <p className="text-gray-500 text-center py-8">
-                  No solution code available yet
+                  暂无方案代码
                 </p>
               )}
             </CardContent>
@@ -269,10 +278,10 @@ export function ExperimentDetail() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="w-5 h-5" />
-                Metrics Over Time
+                性能指标趋势
               </CardTitle>
               <CardDescription>
-                Performance metrics across different iterations
+                不同迭代的性能指标变化
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -280,8 +289,8 @@ export function ExperimentDetail() {
                 <ResponsiveContainer width="100%" height={400}>
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="step" label={{ value: 'Step', position: 'insideBottom', offset: -5 }} />
-                    <YAxis label={{ value: 'Metric Value', angle: -90, position: 'insideLeft' }} />
+                    <XAxis dataKey="step" label={{ value: '步骤', position: 'insideBottom', offset: -5 }} />
+                    <YAxis label={{ value: '指标值', angle: -90, position: 'insideLeft' }} />
                     <Tooltip />
                     <Legend />
                     <Line
@@ -291,12 +300,13 @@ export function ExperimentDetail() {
                       strokeWidth={2}
                       dot={{ fill: '#8884d8', r: 4 }}
                       activeDot={{ r: 6 }}
+                      name="指标"
                     />
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
                 <p className="text-gray-500 text-center py-8">
-                  No metrics data available yet
+                  暂无指标数据
                 </p>
               )}
             </CardContent>
@@ -306,9 +316,9 @@ export function ExperimentDetail() {
         {activeTab === 'logs' && (
           <Card>
             <CardHeader>
-              <CardTitle>Real-time Logs</CardTitle>
+              <CardTitle>实时日志</CardTitle>
               <CardDescription>
-                Live updates from the experiment execution
+                实验执行的实时更新
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -321,7 +331,7 @@ export function ExperimentDetail() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-gray-500">No logs available</p>
+                  <p className="text-gray-500">暂无日志</p>
                 )}
               </div>
             </CardContent>
