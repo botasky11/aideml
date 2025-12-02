@@ -83,7 +83,7 @@ class WebUI:
         Set up the Streamlit page configuration and load custom CSS.
         """
         st.set_page_config(
-            page_title="AIDE: Machine Learning Engineer Agent",
+            page_title="智能数据挖掘助手",
             layout="wide",
         )
         WebUI.load_css()
@@ -114,42 +114,42 @@ class WebUI:
         Render the sidebar with API key settings.
         """
         with st.sidebar:
-            st.header("⚙️ Settings")
+            st.header("⚙️ 设置")
             st.markdown(
-                "<p style='text-align: center;'>OpenAI API Key</p>",
+                "<p style='text-align: center;'>OpenAI API 密钥</p>",
                 unsafe_allow_html=True,
             )
             openai_key = st.text_input(
-                "OpenAI API Key",
+                "OpenAI API 密钥",
                 value=self.env_vars["openai_key"],
                 type="password",
                 label_visibility="collapsed",
             )
             st.markdown(
-                "<p style='text-align: center;'>Anthropic API Key</p>",
+                "<p style='text-align: center;'>Anthropic API 密钥</p>",
                 unsafe_allow_html=True,
             )
             anthropic_key = st.text_input(
-                "Anthropic API Key",
+                "Anthropic API 密钥",
                 value=self.env_vars["anthropic_key"],
                 type="password",
                 label_visibility="collapsed",
             )
             st.markdown(
-                "<p style='text-align: center;'>OpenRouter API Key</p>",
+                "<p style='text-align: center;'>OpenRouter API 密钥</p>",
                 unsafe_allow_html=True,
             )
             openrouter_key = st.text_input(
-                "OpenRouter API Key",
+                "OpenRouter API 密钥",
                 value=self.env_vars["openrouter_key"],
                 type="password",
                 label_visibility="collapsed",
             )
-            if st.button("Save API Keys", use_container_width=True):
+            if st.button("保存 API 密钥", use_container_width=True):
                 st.session_state.openai_key = openai_key
                 st.session_state.anthropic_key = anthropic_key
                 st.session_state.openrouter_key = openrouter_key
-                st.success("API keys saved!")
+                st.success("API 密钥已保存！")
 
     def render_input_section(self, results_col):
         """
@@ -158,11 +158,11 @@ class WebUI:
         Args:
             results_col (st.delta_generator.DeltaGenerator): The results column to pass to methods.
         """
-        st.header("Input")
+        st.header("输入")
         uploaded_files = self.handle_file_upload()
         goal_text, eval_text, num_steps = self.handle_user_inputs()
-        if st.button("Run AIDE", type="primary", use_container_width=True):
-            with st.spinner("AIDE is running..."):
+        if st.button("运行智能助手", type="primary", use_container_width=True):
+            with st.spinner("智能助手正在运行中..."):
                 results = self.run_aide(
                     uploaded_files, goal_text, eval_text, num_steps, results_col
                 )
@@ -178,7 +178,7 @@ class WebUI:
         # Only show file uploader if no example files are loaded
         if not st.session_state.get("example_files"):
             uploaded_files = st.file_uploader(
-                "Upload Data Files",
+                "上传数据文件",
                 accept_multiple_files=True,
                 type=["csv", "txt", "json", "md"],
                 label_visibility="collapsed",
@@ -192,13 +192,13 @@ class WebUI:
 
             # Only show example button if no files are uploaded
             if st.button(
-                "Load Example Experiment", type="primary", use_container_width=True
+                "加载示例实验", type="primary", use_container_width=True
             ):
                 st.session_state.example_files = self.load_example_files()
 
         if st.session_state.get("example_files"):
-            st.info("Example files loaded! Click 'Run AIDE' to proceed.")
-            with st.expander("View Loaded Files", expanded=False):
+            st.info("示例文件已加载！点击'运行智能助手'继续。")
+            with st.expander("查看已加载文件", expanded=False):
                 for file in st.session_state.example_files:
                     st.text(f"📄 {file['name']}")
             return st.session_state.example_files
@@ -213,17 +213,17 @@ class WebUI:
             tuple: Goal text, evaluation criteria text, and number of steps.
         """
         goal_text = st.text_area(
-            "Goal",
+            "目标",
             value=st.session_state.get("goal", ""),
-            placeholder="Example: Predict the sales price for each house",
+            placeholder="示例：预测每栋房子的销售价格",
         )
         eval_text = st.text_area(
-            "Evaluation Criteria",
+            "评估标准",
             value=st.session_state.get("eval", ""),
-            placeholder="Example: Use the RMSE metric between the logarithm of the predicted and observed values.",
+            placeholder="示例：使用预测值与观测值的对数之间的RMSE指标。",
         )
         num_steps = st.slider(
-            "Number of Steps",
+            "迭代步数",
             min_value=1,
             max_value=20,
             value=st.session_state.get("steps", 10),
@@ -260,9 +260,9 @@ class WebUI:
         if not example_files:
             st.warning("No example files found in the example directory")
 
-        st.session_state["goal"] = "Predict the sales price for each house"
+        st.session_state["goal"] = "预测每栋房子的销售价格"
         st.session_state["eval"] = (
-            "Use the RMSE metric between the logarithm of the predicted and observed values."
+            "使用预测值与观测值的对数之间的RMSE指标。"
         )
 
         return example_files
@@ -303,14 +303,14 @@ class WebUI:
                 # Update progress
                 with progress_placeholder.container():
                     st.markdown(
-                        f"### 🔥 Running Step {st.session_state.current_step}/{st.session_state.total_steps}"
+                        f"### 🔥 正在运行步骤 {st.session_state.current_step}/{st.session_state.total_steps}"
                     )
                     st.progress(progress)
 
                 # Show config only for first step
                 if step == 0:
                     with config_placeholder.container():
-                        st.markdown("### 📋 Configuration")
+                        st.markdown("### 📋 配置")
                         st.code(OmegaConf.to_yaml(experiment.cfg), language="yaml")
 
                 experiment.run(steps=1)
@@ -385,7 +385,7 @@ class WebUI:
                     with open(input_dir / file.name, "wb") as f:
                         f.write(file.getbuffer())
         else:
-            st.error("Please upload data files")
+            st.error("请上传数据文件")
             return None
         return input_dir
 
@@ -420,7 +420,7 @@ class WebUI:
         if solution_path.exists():
             solution = solution_path.read_text()
         else:
-            solution = "No solution found"
+            solution = "未找到解决方案"
 
         journal_data = [
             {
@@ -456,10 +456,10 @@ class WebUI:
                     html_content = f.read()
                 components.html(html_content, height=600, scrolling=True)
             else:
-                st.error(f"Tree visualization file not found at: {tree_path}")
+                st.error(f"未找到树状可视化文件：{tree_path}")
                 logger.error(f"Tree file not found at: {tree_path}")
         else:
-            st.info("No tree visualization available for this run.")
+            st.info("此次运行没有可用的树状可视化。")
 
     @staticmethod
     def render_best_solution(results):
@@ -473,7 +473,7 @@ class WebUI:
             solution_code = results["solution"]
             st.code(solution_code, language="python")
         else:
-            st.info("No solution available.")
+            st.info("无可用解决方案。")
 
     @staticmethod
     def render_config(results):
@@ -486,7 +486,7 @@ class WebUI:
         if "config" in results:
             st.code(results["config"], language="yaml")
         else:
-            st.info("No configuration available.")
+            st.info("无可用配置。")
 
     @staticmethod
     def render_journal(results):
@@ -504,7 +504,7 @@ class WebUI:
             except json.JSONDecodeError:
                 st.code(results["journal"], language="json")
         else:
-            st.info("No journal available.")
+            st.info("无可用日志。")
 
     @staticmethod
     def get_best_metric(results):
@@ -565,9 +565,9 @@ class WebUI:
                 )
 
                 fig.update_layout(
-                    title="Validation Score Progress",
-                    xaxis_title="Step",
-                    yaxis_title="Validation Score",
+                    title="验证分数进度",
+                    xaxis_title="步骤",
+                    yaxis_title="验证分数",
                     template="plotly_white",
                     hovermode="x unified",
                     plot_bgcolor="rgba(0,0,0,0)",
@@ -577,10 +577,10 @@ class WebUI:
                 # Only keep the key for plotly_chart
                 st.plotly_chart(fig, use_container_width=True, key=f"plot_{step}")
             else:
-                st.info("No validation metrics available to plot")
+                st.info("没有可用于绘制的验证指标")
 
         except (json.JSONDecodeError, KeyError):
-            st.error("Could not parse validation metrics data")
+            st.error("无法解析验证指标数据")
 
     def render_live_results(self, experiment):
         """
@@ -594,11 +594,11 @@ class WebUI:
         # Create tabs for different result views
         tabs = st.tabs(
             [
-                "Tree Visualization",
-                "Best Solution",
-                "Config",
-                "Journal",
-                "Validation Plot",
+                "树状可视化",
+                "最佳方案",
+                "配置",
+                "日志",
+                "验证图表",
             ]
         )
 
@@ -613,7 +613,7 @@ class WebUI:
         with tabs[4]:
             best_metric = self.get_best_metric(results)
             if best_metric is not None:
-                st.metric("Best Validation Score", f"{best_metric:.4f}")
+                st.metric("最佳验证分数", f"{best_metric:.4f}")
             self.render_validation_plot(results, step=st.session_state.current_step)
 
 

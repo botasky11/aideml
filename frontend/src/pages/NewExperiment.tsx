@@ -35,8 +35,8 @@ export function NewExperiment() {
       navigate(`/experiments/${experiment.id}`);
     },
     onError: (error) => {
-      console.error('Failed to create experiment:', error);
-      alert('Failed to create experiment. Please check console for details.');
+      console.error('创建实验失败:', error);
+      alert('创建实验失败，请查看控制台了解详情。');
     },
   });
 
@@ -59,14 +59,14 @@ export function NewExperiment() {
         onClick={() => navigate('/')}
       >
         <ArrowLeft className="w-4 h-4 mr-2" />
-        Back to Dashboard
+        返回仪表盘
       </Button>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-3xl">Create New Experiment</CardTitle>
+          <CardTitle className="text-3xl">创建新实验</CardTitle>
           <CardDescription>
-            Configure your machine learning experiment and let AIDE ML optimize your model
+            配置您的机器学习实验，让智能助手优化您的模型
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -75,14 +75,14 @@ export function NewExperiment() {
             <div className="space-y-4">
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                  Experiment Name <span className="text-red-500">*</span>
+                  实验名称 <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="name"
                   type="text"
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                  placeholder="e.g., House Price Prediction"
+                  placeholder="例如：房价预测"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 />
@@ -90,13 +90,13 @@ export function NewExperiment() {
 
               <div>
                 <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-                  Description
+                  描述
                 </label>
                 <textarea
                   id="description"
                   rows={3}
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                  placeholder="Brief description of your experiment"
+                  placeholder="简要描述您的实验"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 />
@@ -107,37 +107,37 @@ export function NewExperiment() {
             <div className="space-y-4">
               <div>
                 <label htmlFor="goal" className="block text-sm font-medium text-gray-700 mb-2">
-                  Goal <span className="text-red-500">*</span>
+                  目标 <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   id="goal"
                   rows={3}
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                  placeholder="e.g., Predict the sales price for each house based on the provided features"
+                  placeholder="例如：基于提供的特征预测每栋房子的销售价格"
                   value={formData.goal}
                   onChange={(e) => setFormData({ ...formData, goal: e.target.value })}
                 />
                 <p className="text-sm text-gray-500 mt-1">
-                  Describe what you want the model to achieve
+                  描述您希望模型实现的目标
                 </p>
               </div>
 
               <div>
                 <label htmlFor="eval_metric" className="block text-sm font-medium text-gray-700 mb-2">
-                  Evaluation Metric <span className="text-red-500">*</span>
+                  评估指标 <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="eval_metric"
                   type="text"
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                  placeholder="e.g., RMSE between log-prices, Accuracy, F1-score"
+                  placeholder="例如：对数价格之间的RMSE、准确率、F1分数"
                   value={formData.eval_metric}
                   onChange={(e) => setFormData({ ...formData, eval_metric: e.target.value })}
                 />
                 <p className="text-sm text-gray-500 mt-1">
-                  How should the model's performance be measured?
+                  如何衡量模型的性能？
                 </p>
               </div>
             </div>
@@ -146,7 +146,7 @@ export function NewExperiment() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label htmlFor="num_steps" className="block text-sm font-medium text-gray-700 mb-2">
-                  Number of Steps
+                  迭代步数
                 </label>
                 <input
                   id="num_steps"
@@ -158,13 +158,13 @@ export function NewExperiment() {
                   onChange={(e) => setFormData({ ...formData, num_steps: parseInt(e.target.value) })}
                 />
                 <p className="text-sm text-gray-500 mt-1">
-                  Number of improvement iterations (1-100)
+                  改进迭代次数 (1-100)
                 </p>
               </div>
 
               <div>
                 <label htmlFor="model_name" className="block text-sm font-medium text-gray-700 mb-2">
-                  LLM Model
+                  LLM 模型
                 </label>
                 <select
                   id="model_name"
@@ -183,7 +183,7 @@ export function NewExperiment() {
             {/* File Upload */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Upload Dataset Files
+                上传数据集文件
               </label>
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                 <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -199,14 +199,14 @@ export function NewExperiment() {
                   htmlFor="file-upload"
                   className="cursor-pointer text-primary hover:text-primary/80 font-medium"
                 >
-                  Choose files
+                  选择文件
                 </label>
                 <p className="text-sm text-gray-500 mt-2">
-                  CSV, TXT, JSON, or MD files
+                  支持 CSV、TXT、JSON 或 MD 文件
                 </p>
                 {files.length > 0 && (
                   <div className="mt-4 text-left">
-                    <p className="text-sm font-medium text-gray-700 mb-2">Selected files:</p>
+                    <p className="text-sm font-medium text-gray-700 mb-2">已选择文件：</p>
                     <ul className="text-sm text-gray-600 space-y-1">
                       {files.map((file, index) => (
                         <li key={index} className="flex items-center gap-2">
@@ -231,12 +231,12 @@ export function NewExperiment() {
                 {createMutation.isPending ? (
                   <>
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />
-                    Creating...
+                    创建中...
                   </>
                 ) : (
                   <>
                     <Play className="w-5 h-5 mr-2" />
-                    Create & Run Experiment
+                    创建并运行实验
                   </>
                 )}
               </Button>
@@ -246,7 +246,7 @@ export function NewExperiment() {
                 size="lg"
                 onClick={() => navigate('/')}
               >
-                Cancel
+                取消
               </Button>
             </div>
           </form>
