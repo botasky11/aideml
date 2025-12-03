@@ -184,16 +184,12 @@ class ExperimentService:
                 eval=experiment.eval_metric,
             )
             
-            # Import save_run to manually control visualization
+            # Run steps - manually control each step without intermediate visualizations
             from aide.utils.config import save_run
-            
-            # Run steps
             for step in range(experiment.num_steps):
-                # Run one step without generating visualization
-                # We use agent.step() directly to avoid the save_run() call in run()
+                # Execute one agent step WITHOUT generating visualization
                 aide_exp.agent.step(exec_callback=aide_exp.interpreter.run)
-                
-                # Manually save progress without visualization (much faster)
+                # Save the run state without generating expensive visualization
                 save_run(aide_exp.cfg, aide_exp.journal, generate_viz=False)
                 
                 # Update progress
@@ -232,10 +228,10 @@ class ExperimentService:
                         analysis=node.analysis,
                     )
             
-            # Clean up interpreter session
+            # Cleanup interpreter session
             aide_exp.interpreter.cleanup_session()
             
-            # Generate final tree visualization (only once at the end)
+            # Generate final tree visualization ONLY ONCE at the end
             try:
                 save_run(aide_exp.cfg, aide_exp.journal, generate_viz=True)
                 logger.info(f"Generated final tree visualization for experiment {experiment_id}")
