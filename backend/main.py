@@ -4,14 +4,12 @@ from contextlib import asynccontextmanager
 import logging
 
 from backend.core.config import settings
+from backend.core.logging_config import setup_logging
 from backend.api import api_router
 from backend.database import init_db
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+# Configure logging as early as possible
+setup_logging()
 
 logger = logging.getLogger(__name__)
 
@@ -69,10 +67,13 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
+    from backend.core.logging_config import get_uvicorn_log_config
+    
     uvicorn.run(
         "backend.main:app",
         host="0.0.0.0",
         port=8000,
         reload=True,
-        log_level="info"
+        log_level="info",
+        log_config=get_uvicorn_log_config()
     )

@@ -155,18 +155,25 @@ class ExperimentService:
     ):
         """Run AIDE experiment asynchronously"""
         try:
+            logger.info(f"[EXP_SERVICE] Starting experiment {experiment_id}")
+            logger.info(f"[EXP_SERVICE] WebSocket callback available: {websocket_callback is not None}")
+
             experiment = await self.get_experiment(experiment_id)
             if not experiment:
                 raise ValueError(f"Experiment {experiment_id} not found")
-            
+
+            logger.info(f"[EXP_SERVICE] Found experiment: {experiment.name}, current status: {experiment.status}")
+
             # Update status to running
             await self.update_experiment(
                 experiment_id,
                 ExperimentUpdate(status=ExperimentStatus.RUNNING)
             )
-            
+            logger.info(f"[EXP_SERVICE] Updated experiment status to RUNNING")
+
             # Send initial status
             if websocket_callback:
+                logger.info(f"[EXP_SERVICE] Sending initial status_update via WebSocket")
                 await websocket_callback({
                     "type": "status_update",
                     "data": {
@@ -176,6 +183,9 @@ class ExperimentService:
                         "progress": 0.0
                     }
                 })
+                logger.info(f"[EXP_SERVICE] Initial status_update sent successfully")
+            else:
+                logger.warning(f"[EXP_SERVICE] Send initial status Failed: No active WebSocket connection for experiment {experiment_id}")
             
             # Initialize AIDE experiment
             aide_exp = AIDEExperiment(
@@ -186,14 +196,20 @@ class ExperimentService:
             
             # Run steps - manually control each step without intermediate visualizations
             from aide.utils.config import save_run
+            logger.info(f"[EXP_SERVICE] Starting {experiment.num_steps} steps execution")
+
             for step in range(experiment.num_steps):
+                logger.info(f"[EXP_SERVICE] Executing step {step + 1}/{experiment.num_steps}")
+
                 # Execute one agent step WITHOUT generating visualization
                 aide_exp.agent.step(exec_callback=aide_exp.interpreter.run)
                 # Save the run state without generating expensive visualization
                 save_run(aide_exp.cfg, aide_exp.journal, generate_viz=False)
-                
+
                 # Update progress
                 progress = (step + 1) / experiment.num_steps
+                logger.info(f"[EXP_SERVICE] Step {step + 1} completed, progress: {progress * 100:.1f}%")
+
                 await self.update_experiment(
                     experiment_id,
                     ExperimentUpdate(
@@ -201,9 +217,11 @@ class ExperimentService:
                         progress=progress
                     )
                 )
-                
+                logger.info(f"[EXP_SERVICE] Database updated with progress")
+
                 # Send progress update
                 if websocket_callback:
+                    logger.info(f"[EXP_SERVICE] Sending progress update via WebSocket for step {step + 1}")
                     await websocket_callback({
                         "type": "status_update",
                         "data": {
@@ -214,6 +232,9 @@ class ExperimentService:
                             "total_steps": experiment.num_steps
                         }
                     })
+                    logger.info(f"[EXP_SERVICE] Progress update sent successfully for step {step + 1}")
+                else:
+                    logger.warning(f"[EXP_SERVICE] Send progress update Failed: No active WebSocket connection for experiment {experiment_id}")
                 
                 # Save nodes from journal
                 for node in aide_exp.journal.nodes:
@@ -267,6 +288,7 @@ class ExperimentService:
             )
             
             # Send completion message
+            logger.info(f"[EXP_SERVICE] Experiment completed, sending completion message")
             if websocket_callback:
                 await websocket_callback({
                     "type": "complete",
@@ -277,10 +299,13 @@ class ExperimentService:
                         "best_solution_code": best_solution_code
                     }
                 })
+                logger.info(f"[EXP_SERVICE] Completion message sent successfully")
+            else:
+                logger.warning(f"[EXP_SERVICE] Send completion message Failed: No active WebSocket connection for experiment {experiment_id}")
             
         except Exception as e:
-            logger.error(f"Error running experiment {experiment_id}: {str(e)}")
-            
+            logger.error(f"[EXP_SERVICE] Error running experiment {experiment_id}: {str(e)}", exc_info=True)
+
             # Update experiment status to failed
             await self.update_experiment(
                 experiment_id,
@@ -289,9 +314,11 @@ class ExperimentService:
                     error_message=str(e)
                 )
             )
-            
+            logger.info(f"[EXP_SERVICE] Updated experiment status to FAILED")
+
             # Send error message
             if websocket_callback:
+                logger.info(f"[EXP_SERVICE] Sending error message via WebSocket")
                 await websocket_callback({
                     "type": "error",
                     "data": {
@@ -299,3 +326,6 @@ class ExperimentService:
                         "error": str(e)
                     }
                 })
+                logger.info(f"[EXP_SERVICE] Error message sent successfully")
+            else:
+                logger.warning(f"[EXP_SERVICE] Send error message Failed: No active WebSocket connection for experiment {experiment_id}")

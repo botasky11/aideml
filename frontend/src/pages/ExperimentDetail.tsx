@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Play, Pause, Download, Code, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Play, Download, Code, BarChart3 } from 'lucide-react';
 import { experimentAPI } from '@/services/api';
 import { WebSocketService } from '@/services/websocket';
 import { Button } from '@/components/ui/Button';
@@ -16,55 +16,112 @@ export function ExperimentDetail() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'overview' | 'code' | 'metrics' | 'logs'>('overview');
   const [wsMessages, setWsMessages] = useState<WebSocketMessage[]>([]);
+  const wsRef = useRef<WebSocketService | null>(null);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
 
   const { data: experiment, isLoading, refetch } = useQuery({
     queryKey: ['experiment', id],
     queryFn: () => experimentAPI.get(id!),
     enabled: !!id,
     // 轮询条件：运行中或待运行状态时持续轮询，确保能捕获到失败状态
-    refetchInterval: (data) => {
-      const status = data?.status;
+    refetchInterval: (query) => {
+      const status = query?.state?.data?.status;
       return (status === 'running' || status === 'pending') ? 2000 : false;
     },
   });
 
-  const { data: nodes } = useQuery({
+  const { data: nodes, refetch: refetchNodes } = useQuery({
     queryKey: ['experiment-nodes', id],
     queryFn: () => experimentAPI.getNodes(id!),
-    enabled: !!id && experiment?.status === 'completed',
+    enabled: !!id && (experiment?.status === 'completed' || experiment?.status === 'running'),
+    // 在运行中时每2秒轮询一次以获取新节点
+    refetchInterval: (query) => {
+      const status = query?.state?.data ? experiment?.status : undefined;
+      return status === 'running' ? 2000 : false;
+    },
   });
 
-  // WebSocket connection
+  // WebSocket connection - 使用ref避免不必要的重建
   useEffect(() => {
-    // 连接WebSocket：运行中或待运行状态时连接
-    if (!id || (experiment?.status !== 'running' && experiment?.status !== 'pending')) return;
+    console.log('[EXP_DETAIL] WebSocket useEffect triggered');
+    console.log('[EXP_DETAIL] Experiment ID:', id);
+    console.log('[EXP_DETAIL] Experiment status:', experiment?.status);
 
-    const ws = new WebSocketService(id);
-    ws.connect();
+    if (!id) {
+      console.log('[EXP_DETAIL] ⏭️ No experiment ID');
+      return;
+    }
 
-    const unsubscribe = ws.subscribe((message) => {
-      setWsMessages((prev) => [...prev, message]);
-      
-      // 处理各种消息类型：状态更新、完成、错误
-      if (message.type === 'status_update' || message.type === 'complete' || message.type === 'error') {
-        refetch();
+    const status = experiment?.status;
+    const shouldConnect = status === 'running' || status === 'pending';
+
+    // 如果应该连接但还没有连接
+    if (shouldConnect && !wsRef.current) {
+      console.log('[EXP_DETAIL] ✅ Creating WebSocket connection for experiment:', id);
+      const ws = new WebSocketService(id);
+      ws.connect();
+      wsRef.current = ws;
+
+      const unsubscribe = ws.subscribe((message) => {
+        console.log('[EXP_DETAIL] 📨 Message received in component:', message);
+        setWsMessages((prev) => {
+          const updated = [...prev, message];
+          console.log('[EXP_DETAIL] Updated wsMessages array, total messages:', updated.length);
+          return updated;
+        });
+
+        // 处理各种消息类型：状态更新、完成、错误
+        if (message.type === 'status_update' || message.type === 'complete' || message.type === 'error') {
+          console.log('[EXP_DETAIL] 🔄 Triggering refetch due to message type:', message.type);
+          refetch();
+          
+          // 如果是完成或错误消息，也刷新nodes数据以确保获取最终结果
+          if (message.type === 'complete' || message.type === 'error') {
+            console.log('[EXP_DETAIL] 🔄 Also triggering nodes refetch for final results');
+            refetchNodes();
+          }
+        }
+      });
+
+      unsubscribeRef.current = unsubscribe;
+      console.log('[EXP_DETAIL] WebSocket subscription created');
+    }
+    // 如果不应该连接但已经连接了（实验完成或失败）
+    else if (!shouldConnect && wsRef.current) {
+      console.log('[EXP_DETAIL] 🧹 Disconnecting WebSocket - experiment status:', status);
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
       }
-    });
+      wsRef.current.disconnect();
+      wsRef.current = null;
+    }
 
+    // Cleanup函数：只在组件卸载或ID变化时执行
     return () => {
-      unsubscribe();
-      ws.disconnect();
+      if (wsRef.current) {
+        console.log('[EXP_DETAIL] 🧹 Cleanup: Disconnecting WebSocket for experiment:', id);
+        if (unsubscribeRef.current) {
+          unsubscribeRef.current();
+          unsubscribeRef.current = null;
+        }
+        wsRef.current.disconnect();
+        wsRef.current = null;
+      }
     };
-  }, [id, experiment?.status, refetch]);
+  }, [id, experiment?.status, refetch]); // 现在可以安全地包含status，因为使用ref避免重建
 
   const handleRun = async () => {
     if (!id) return;
+    console.log('[EXP_DETAIL] 🚀 Starting experiment:', id);
     try {
-      await experimentAPI.run(id);
+      const result = await experimentAPI.run(id);
+      console.log('[EXP_DETAIL] ✅ Experiment run API call successful:', result);
       // 立即刷新以获取最新状态
       await refetch();
+      console.log('[EXP_DETAIL] Refetch completed after run');
     } catch (error) {
-      console.error('Failed to start experiment:', error);
+      console.error('[EXP_DETAIL] ❌ Failed to start experiment:', error);
       // 即使出错也刷新，以获取最新的错误状态
       await refetch();
     }

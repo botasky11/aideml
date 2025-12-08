@@ -1,5 +1,6 @@
 import asyncio
 import shutil
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -140,13 +141,19 @@ async def run_experiment(
     # Run experiment in background with independent session
     async def run_background_task():
         from backend.database.base import async_session_maker
-        
+
         async def websocket_callback(message):
+            logger.info(f"[WS_CALLBACK] Attempting to send message for experiment {experiment_id}, type: {message.get('type')}")
+            logger.info(f"[WS_CALLBACK] Active connections: {list(active_connections.keys())}")
+
             if experiment_id in active_connections:
                 try:
                     await active_connections[experiment_id].send_json(message)
+                    logger.info(f"[WS_CALLBACK] Successfully sent {message.get('type')} message to experiment {experiment_id}")
                 except Exception as e:
-                    logger.error(f"Error sending WebSocket message: {e}")
+                    logger.error(f"[WS_CALLBACK] Error sending WebSocket message for experiment {experiment_id}: {e}", exc_info=True)
+            else:
+                logger.warning(f"[WS_CALLBACK] No active WebSocket connection for experiment {experiment_id}. Message type: {message.get('type')}")
         
         # Create independent database session for background task
         async with async_session_maker() as bg_db:
@@ -162,6 +169,7 @@ async def run_experiment(
                         ExperimentUpdate(status=ExperimentStatus.FAILED, error_message=str(e))
                     )
                 except Exception:
+                    logger.error(f"Failed to update experiment status to FAILED for experiment {experiment_id}")
                     pass
     
     asyncio.create_task(run_background_task())
@@ -186,19 +194,39 @@ async def websocket_endpoint(
     experiment_id: str,
 ):
     """WebSocket endpoint for real-time experiment updates"""
-    await websocket.accept()
-    active_connections[experiment_id] = websocket
-    
+    logger.info(f"[WS] New WebSocket connection request for experiment {experiment_id}")
+
     try:
+        await websocket.accept()
+        logger.info(f"[WS] WebSocket connection accepted for experiment {experiment_id}")
+
+        active_connections[experiment_id] = websocket
+        logger.info(f"[WS] Added to active_connections. Total connections: {len(active_connections)}")
+
+        # Send initial connection confirmation
+        try:
+            await websocket.send_json({
+                "type": "connection_established",
+                "data": {
+                    "experiment_id": experiment_id,
+                    "timestamp": datetime.now().isoformat()
+                }
+            })
+            logger.info(f"[WS] Sent connection_established message to experiment {experiment_id}")
+        except Exception as send_error:
+            logger.error(f"[WS] Failed to send connection_established: {send_error}")
+
         while True:
             # Keep connection alive
             data = await websocket.receive_text()
-            logger.debug(f"Received WebSocket message: {data}")
+            logger.debug(f"[WS] Received message from client for experiment {experiment_id}: {data}")
     except WebSocketDisconnect:
-        logger.info(f"WebSocket disconnected for experiment {experiment_id}")
+        logger.info(f"[WS] WebSocket disconnected for experiment {experiment_id}")
         if experiment_id in active_connections:
             del active_connections[experiment_id]
+            logger.info(f"[WS] Removed from active_connections. Remaining connections: {len(active_connections)}")
     except Exception as e:
-        logger.error(f"WebSocket error: {e}")
+        logger.error(f"[WS] WebSocket error for experiment {experiment_id}: {e}", exc_info=True)
         if experiment_id in active_connections:
             del active_connections[experiment_id]
+            logger.info(f"[WS] Removed from active_connections due to error. Remaining: {len(active_connections)}")
