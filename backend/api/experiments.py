@@ -214,7 +214,11 @@ async def websocket_endpoint(
             })
             logger.info(f"[WS] Sent connection_established message to experiment {experiment_id}")
         except Exception as send_error:
-            logger.error(f"[WS] Failed to send connection_established: {send_error}")
+            logger.warning(f"[WS] Failed to send connection_established (client likely disconnected): {send_error}")
+            # 清理连接并退出
+            if experiment_id in active_connections:
+                del active_connections[experiment_id]
+            return
 
         while True:
             # Keep connection alive

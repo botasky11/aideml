@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Play, Download, Code, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Play, Download, Code, BarChart3, Loader2 } from 'lucide-react';
 import { experimentAPI } from '@/services/api';
 import { WebSocketService } from '@/services/websocket';
 import { Button } from '@/components/ui/Button';
@@ -16,8 +16,16 @@ export function ExperimentDetail() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'overview' | 'code' | 'metrics' | 'logs'>('overview');
   const [wsMessages, setWsMessages] = useState<WebSocketMessage[]>([]);
+  const [isStarting, setIsStarting] = useState(false);
   const wsRef = useRef<WebSocketService | null>(null);
   const unsubscribeRef = useRef<(() => void) | null>(null);
+  
+  // 实时进度状态 - 用于立即响应WebSocket消息，避免异步refetch导致的延迟
+  const [realtimeProgress, setRealtimeProgress] = useState<{
+    current_step: number;
+    progress: number;
+    status: string;
+  } | null>(null);
 
   const { data: experiment, isLoading, refetch } = useQuery({
     queryKey: ['experiment', id],
@@ -41,79 +49,110 @@ export function ExperimentDetail() {
     },
   });
 
-  // WebSocket connection - 使用ref避免不必要的重建
+  // WebSocket连接管理 - 只在ID变化时创建/销毁连接
   useEffect(() => {
-    console.log('[EXP_DETAIL] WebSocket useEffect triggered');
-    console.log('[EXP_DETAIL] Experiment ID:', id);
-    console.log('[EXP_DETAIL] Experiment status:', experiment?.status);
-
     if (!id) {
       console.log('[EXP_DETAIL] ⏭️ No experiment ID');
       return;
     }
 
-    const status = experiment?.status;
-    const shouldConnect = status === 'running' || status === 'pending';
+    // 防止重复创建连接（React Strict Mode可能导致）
+    if (wsRef.current) {
+      console.log('[EXP_DETAIL] ⏭️ WebSocket already exists, skipping creation');
+      return;
+    }
 
-    // 如果应该连接但还没有连接
-    if (shouldConnect && !wsRef.current) {
-      console.log('[EXP_DETAIL] ✅ Creating WebSocket connection for experiment:', id);
-      const ws = new WebSocketService(id);
-      ws.connect();
-      wsRef.current = ws;
+    console.log('[EXP_DETAIL] 🔌 Initializing WebSocket connection for experiment:', id);
+    const ws = new WebSocketService(id);
+    ws.connect();
+    wsRef.current = ws;
 
-      const unsubscribe = ws.subscribe((message) => {
-        console.log('[EXP_DETAIL] 📨 Message received in component:', message);
-        setWsMessages((prev) => {
-          const updated = [...prev, message];
-          console.log('[EXP_DETAIL] Updated wsMessages array, total messages:', updated.length);
-          return updated;
-        });
-
-        // 处理各种消息类型：状态更新、完成、错误
-        if (message.type === 'status_update' || message.type === 'complete' || message.type === 'error') {
-          console.log('[EXP_DETAIL] 🔄 Triggering refetch due to message type:', message.type);
-          refetch();
-          
-          // 如果是完成或错误消息，也刷新nodes数据以确保获取最终结果
-          if (message.type === 'complete' || message.type === 'error') {
-            console.log('[EXP_DETAIL] 🔄 Also triggering nodes refetch for final results');
-            refetchNodes();
-          }
-        }
+    const unsubscribe = ws.subscribe((message) => {
+      console.log('[EXP_DETAIL] 📨 Message received in component:', message);
+      setWsMessages((prev) => {
+        const updated = [...prev, message];
+        console.log('[EXP_DETAIL] Updated wsMessages array, total messages:', updated.length);
+        return updated;
       });
 
-      unsubscribeRef.current = unsubscribe;
-      console.log('[EXP_DETAIL] WebSocket subscription created');
-    }
-    // 如果不应该连接但已经连接了（实验完成或失败）
-    else if (!shouldConnect && wsRef.current) {
-      console.log('[EXP_DETAIL] 🧹 Disconnecting WebSocket - experiment status:', status);
+      // 处理各种消息类型：状态更新、完成、错误
+      if (message.type === 'status_update') {
+        console.log('[EXP_DETAIL] 🔄 Status update received');
+        
+        // 立即更新实时进度，避免refetch()延迟
+        const data = message.data as any;
+        if (data) {
+          console.log('[EXP_DETAIL] ⚡ Immediate progress update:', {
+            step: data.step,
+            progress: data.progress,
+            status: data.status
+          });
+          setRealtimeProgress({
+            current_step: data.step || 0,
+            progress: data.progress || 0,
+            status: data.status || 'running'
+          });
+        }
+        
+        // 后台同步数据
+        refetch();
+      } else if (message.type === 'complete' || message.type === 'error') {
+        console.log('[EXP_DETAIL] 🏁 Experiment finished, message type:', message.type);
+        
+        // 清除实时进度，使用服务器数据
+        setRealtimeProgress(null);
+        
+        // 刷新数据
+        refetch();
+        refetchNodes();
+      }
+    });
+
+    unsubscribeRef.current = unsubscribe;
+    console.log('[EXP_DETAIL] ✅ WebSocket subscription created for experiment:', id);
+
+    // Cleanup：只在组件卸载或ID变化时执行
+    return () => {
+      console.log('[EXP_DETAIL] 🧹 Cleanup: Disconnecting WebSocket for experiment:', id);
       if (unsubscribeRef.current) {
         unsubscribeRef.current();
         unsubscribeRef.current = null;
       }
-      wsRef.current.disconnect();
-      wsRef.current = null;
-    }
-
-    // Cleanup函数：只在组件卸载或ID变化时执行
-    return () => {
       if (wsRef.current) {
-        console.log('[EXP_DETAIL] 🧹 Cleanup: Disconnecting WebSocket for experiment:', id);
-        if (unsubscribeRef.current) {
-          unsubscribeRef.current();
-          unsubscribeRef.current = null;
-        }
         wsRef.current.disconnect();
         wsRef.current = null;
       }
     };
-  }, [id, experiment?.status, refetch]); // 现在可以安全地包含status，因为使用ref避免重建
+  }, [id]); // 只依赖ID，确保连接稳定
+
+  // 根据实验状态自动断开WebSocket (实验完成后)
+  useEffect(() => {
+    const status = experiment?.status;
+    
+    // 只在实验完成或失败且有活跃连接时断开
+    if ((status === 'completed' || status === 'failed') && wsRef.current) {
+      console.log('[EXP_DETAIL] 🏁 Experiment finished with status:', status);
+      console.log('[EXP_DETAIL] 🔌 Disconnecting WebSocket');
+      
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
+      if (wsRef.current) {
+        wsRef.current.disconnect();
+        wsRef.current = null;
+      }
+    }
+  }, [experiment?.status]); // 监听状态变化，仅用于断开连接
 
   const handleRun = async () => {
-    if (!id) return;
+    if (!id || isStarting) return;
+    
+    setIsStarting(true);
+    // 清除之前的实时进度
+    setRealtimeProgress(null);
     console.log('[EXP_DETAIL] 🚀 Starting experiment:', id);
+    
     try {
       const result = await experimentAPI.run(id);
       console.log('[EXP_DETAIL] ✅ Experiment run API call successful:', result);
@@ -122,9 +161,18 @@ export function ExperimentDetail() {
       console.log('[EXP_DETAIL] Refetch completed after run');
     } catch (error) {
       console.error('[EXP_DETAIL] ❌ Failed to start experiment:', error);
+      // 如果启动失败，允许重试
+      setIsStarting(false);
       // 即使出错也刷新，以获取最新的错误状态
       await refetch();
     }
+  };
+
+  // 合并实时进度和服务器数据，优先使用实时数据
+  const displayProgress = realtimeProgress || {
+    current_step: experiment?.current_step || 0,
+    progress: experiment?.progress || 0,
+    status: experiment?.status || 'pending'
   };
 
   const handleDownload = () => {
@@ -185,9 +233,13 @@ export function ExperimentDetail() {
         </div>
         <div className="flex gap-2">
           {experiment.status === 'pending' && (
-            <Button onClick={handleRun} className="gap-2">
+            <Button 
+              onClick={handleRun} 
+              disabled={isStarting}
+              className="gap-2"
+            >
               <Play className="w-4 h-4" />
-              运行实验
+              {isStarting ? '启动中...' : '运行实验'}
             </Button>
           )}
           {experiment.best_solution_code && (
@@ -204,28 +256,71 @@ export function ExperimentDetail() {
         </div>
       </div>
 
-      {/* Status Card */}
+      {/* Status Card - 运行中 */}
       {experiment.status === 'running' && (
-        <Card className="mb-6 border-blue-200 bg-blue-50">
-          <CardContent className="pt-6">
-            <div className="space-y-3">
+        <Card className="mb-6 border-blue-300 bg-gradient-to-r from-blue-50 to-blue-100 shadow-lg relative overflow-hidden">
+          {/* 动态背景效果 */}
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 via-transparent to-blue-400/10 animate-pulse"></div>
+          
+          {/* 移动的光效 */}
+          <div className="absolute inset-0 overflow-hidden">
+            <div className="absolute top-0 -left-full h-full w-1/2 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"></div>
+          </div>
+          
+          <CardContent className="pt-6 relative z-10">
+            <div className="space-y-4">
+              {/* 标题行 */}
               <div className="flex items-center justify-between">
-                <span className="text-lg font-medium">运行中...</span>
-                <span className="text-lg font-bold">
-                  步骤 {experiment.current_step} / {experiment.num_steps}
-                </span>
+                <div className="flex items-center gap-3">
+                  <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+                  <span className="text-lg font-semibold text-blue-900 flex items-center gap-1">
+                    运行中
+                    <span className="inline-flex gap-0.5">
+                      <span className="animate-bounce" style={{ animationDelay: '0ms' }}>.</span>
+                      <span className="animate-bounce" style={{ animationDelay: '150ms' }}>.</span>
+                      <span className="animate-bounce" style={{ animationDelay: '300ms' }}>.</span>
+                    </span>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-blue-700 font-medium">步骤</span>
+                  <span className="text-2xl font-bold text-blue-900 tabular-nums">
+                    {displayProgress.current_step}
+                  </span>
+                  <span className="text-lg text-blue-600">/</span>
+                  <span className="text-xl font-semibold text-blue-700 tabular-nums">
+                    {experiment.num_steps}
+                  </span>
+                </div>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-3">
-                <div
-                  className="bg-primary h-3 rounded-full transition-all duration-500"
-                  style={{ width: `${experiment.progress * 100}%` }}
-                />
-              </div>
-              <div className="text-sm text-gray-600">
-                进度: {Math.round(experiment.progress * 100)}%
+              
+              {/* 进度条 */}
+              <div className="space-y-2">
+                <div className="w-full bg-blue-200/50 rounded-full h-4 shadow-inner overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-blue-500 via-blue-600 to-blue-500 h-4 rounded-full transition-all duration-700 ease-out relative overflow-hidden"
+                    style={{ width: `${displayProgress.progress * 100}%` }}
+                  >
+                    {/* 进度条内的光效 */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer-fast"></div>
+                  </div>
+                </div>
+                
+                {/* 进度百分比 */}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-blue-700">
+                    进度: <span className="text-base font-bold text-blue-900 tabular-nums">{Math.round(displayProgress.progress * 100)}%</span>
+                  </span>
+                  <span className="text-xs text-blue-600 animate-pulse">
+                    正在处理...
+                  </span>
+                </div>
               </div>
             </div>
           </CardContent>
+          
+          {/* 底部装饰线 */}
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-400 animate-pulse"></div>
         </Card>
       )}
 

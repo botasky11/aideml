@@ -27,7 +27,7 @@ exec:
 generate_report: True
 # LLM settings for final report from journal
 report:
-  model: gemini-3-pro-preview
+  model: gpt-4.1-mini
   temp: 1.0
 
 # agent hyperparams
@@ -43,12 +43,12 @@ agent:
 
   # LLM settings for coding
   code:
-    model: gemini-3-pro-preview
+    model: gpt-4.1-mini
     temp: 0.5
 
   # LLM settings for evaluating program output / tracebacks
   feedback:
-    model: gemini-3-pro-preview
+    model: gpt-4.1-mini
     temp: 0.5
 
   # hyperparameters for the tree search
