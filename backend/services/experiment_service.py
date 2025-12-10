@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional, List
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
+from sqlalchemy import select, update, delete
 
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -95,11 +95,17 @@ class ExperimentService:
         return experiment
     
     async def delete_experiment(self, experiment_id: str) -> bool:
-        """Delete experiment"""
+        """Delete experiment and all associated nodes"""
         experiment = await self.get_experiment(experiment_id)
         if not experiment:
             return False
         
+        # Delete all experiment nodes first
+        await self.db.execute(
+            delete(ExperimentNode).where(ExperimentNode.experiment_id == experiment_id)
+        )
+        
+        # Then delete the experiment
         await self.db.delete(experiment)
         await self.db.commit()
         
