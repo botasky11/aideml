@@ -197,8 +197,8 @@ class ExperimentService:
             # Run steps - manually control each step without intermediate visualizations
             from aide.utils.config import save_run
             logger.info(f"[EXP_SERVICE] Starting {experiment.num_steps} steps execution")
-            
-            # Track saved nodes count to avoid duplicate writes
+
+            # Track how many nodes have been saved to avoid duplicate writes
             saved_nodes_count = 0
 
             for step in range(experiment.num_steps):
@@ -239,9 +239,10 @@ class ExperimentService:
                 else:
                     logger.warning(f"[EXP_SERVICE] Send progress update Failed: No active WebSocket connection for experiment {experiment_id}")
                 
-                # Save ONLY NEW nodes from journal (避免重复写入)
+                # Save only NEW nodes to avoid duplicate writes
+                # Only process nodes that haven't been saved yet
                 new_nodes = aide_exp.journal.nodes[saved_nodes_count:]
-                logger.info(f"[EXP_SERVICE] Saving {len(new_nodes)} new nodes (total in journal: {len(aide_exp.journal.nodes)}, already saved: {saved_nodes_count})")
+                logger.info(f"[EXP_SERVICE] Saving {len(new_nodes)} new nodes (total nodes: {len(aide_exp.journal.nodes)}, already saved: {saved_nodes_count})")
                 
                 for node in new_nodes:
                     await self.create_node(
@@ -255,9 +256,9 @@ class ExperimentService:
                         analysis=node.analysis,
                     )
                 
-                # Update saved nodes count
+                # Update the count of saved nodes
                 saved_nodes_count = len(aide_exp.journal.nodes)
-                logger.info(f"[EXP_SERVICE] Nodes saved successfully, total saved: {saved_nodes_count}")
+                logger.info(f"[EXP_SERVICE] Updated saved_nodes_count to {saved_nodes_count}")
             
             # Cleanup interpreter session
             aide_exp.interpreter.cleanup_session()
