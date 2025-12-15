@@ -68,7 +68,7 @@ export function Dashboard() {
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-4xl font-bold text-gray-900">智能数据挖掘助手</h1>
-          <p className="text-gray-600 mt-2">企业级机器学习工程代理</p>
+          <p className="text-gray-600 mt-2">提升数据分析效率与业务洞察力的智能代理</p>
         </div>
         <Link to="/experiments/new">
           <Button size="lg" className="gap-2">

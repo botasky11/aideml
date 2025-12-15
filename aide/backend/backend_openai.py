@@ -164,6 +164,14 @@ def query(
     # Parse the output based on API type
     if use_chat_api:
         # Chat completions API response
+        if not hasattr(response, "choices") or not response.choices:
+            logger.error("OpenAI API response has no choices")
+            info = {
+                "system_fingerprint": getattr(response, "system_fingerprint", None),
+                "model": getattr(response, "model", "unknown"),
+                "created": getattr(response, "created", None),
+            }
+            return "", req_time, 0, 0, info
         message = response.choices[0].message
 
         if (
@@ -187,13 +195,17 @@ def query(
                     f"Function name mismatch: expected {func_spec.name}, "
                     f"got {tool_call.function.name}. Fallback to text."
                 )
-                output = message.content
+                output = message.content if message.content is not None else ""
         else:
             # No function call, use regular text output
-            output = message.content
+            output = message.content if message.content is not None else ""
 
-        in_tokens = response.usage.prompt_tokens
-        out_tokens = response.usage.completion_tokens
+        if response.usage:
+            in_tokens = response.usage.prompt_tokens
+            out_tokens = response.usage.completion_tokens
+        else:
+            in_tokens = 0
+            out_tokens = 0
     else:
         # Responses API response
         if (
@@ -232,10 +244,17 @@ def query(
                 output = response.output_text
         else:
             # Fallback to output_text
-            output = response.output_text
+            if hasattr(response, "output") and response.output is None:
+                output = ""
+            else:
+                output = response.output_text
 
-        in_tokens = response.usage.input_tokens
-        out_tokens = response.usage.output_tokens
+        if response.usage:
+            in_tokens = response.usage.input_tokens
+            out_tokens = response.usage.output_tokens
+        else:
+            in_tokens = 0
+            out_tokens = 0
 
     info = {
         "system_fingerprint": getattr(response, "system_fingerprint", None),

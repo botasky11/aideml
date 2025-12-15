@@ -43,7 +43,7 @@ agent:
 
   # LLM settings for coding
   code:
-    model: gpt-4.1-mini
+    model: o4-mini
     temp: 0.5
 
   # LLM settings for evaluating program output / tracebacks
