@@ -95,6 +95,7 @@ def query(
             filtered_kwargs["tool_choice"] = func_spec.openai_responses_tool_choice_dict
 
     logger.info(f"OpenAI API request: system={system_message}, user={user_message}")
+    logger.info(f"Using API: {'chat.completions' if use_chat_api else 'responses'}, model={filtered_kwargs.get('model')}, has_func_spec={func_spec is not None}")
 
     t0 = time.time()
 
@@ -103,6 +104,7 @@ def query(
         if use_chat_api:
             # Use custom client if available, otherwise fall back to default
             client_to_use = _custom_client if _custom_client else _client
+            logger.debug(f"Chat API request with {len(messages)} messages, kwargs: {list(filtered_kwargs.keys())}")
             response = backoff_create(
                 client_to_use.chat.completions.create,
                 OPENAI_TIMEOUT_EXCEPTIONS,
@@ -110,6 +112,7 @@ def query(
                 **filtered_kwargs,
             )
         else:
+            logger.debug(f"Responses API request with {len(messages)} messages, kwargs: {list(filtered_kwargs.keys())}")
             response = backoff_create(
                 _client.responses.create,
                 OPENAI_TIMEOUT_EXCEPTIONS,
@@ -149,6 +152,14 @@ def query(
             raise
 
     req_time = time.time() - t0
+
+    # Log response details for debugging
+    logger.debug(f"API response received: type={type(response)}, has_choices={hasattr(response, 'choices')}, has_output={hasattr(response, 'output')}, has_usage={hasattr(response, 'usage')}")
+    if hasattr(response, 'usage'):
+        usage = response.usage
+        logger.debug(f"Usage info: {usage}")
+    if hasattr(response, 'model'):
+        logger.debug(f"Response model: {response.model}")
 
     # Parse the output based on API type
     if use_chat_api:
