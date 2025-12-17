@@ -82,7 +82,7 @@ class RedirectQueue:
         try:
             self.queue.put(msg, timeout=self.timeout)
         except queue.Full:
-            logger.warning("Queue write timed out")
+            print("[CRITICAL] Write failed: queue Full", file=sys.stderr)
 
     def flush(self):
         pass

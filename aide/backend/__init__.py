@@ -1,4 +1,4 @@
-from . import backend_anthropic, backend_openai, backend_openrouter, backend_gemini
+from . import backend_anthropic, backend_openai, backend_openrouter, backend_gemini, backend_litellm
 from .utils import FunctionSpec, OutputType, PromptType, compile_prompt_to_md
 import re
 import logging
@@ -24,10 +24,10 @@ def determine_provider(model: str) -> str:
 
 
 provider_to_query_func = {
-    "openai": backend_openai.query,
-    "anthropic": backend_anthropic.query,
-    "openrouter": backend_openrouter.query,
-    "gemini": backend_gemini.query,
+    "openai": backend_litellm.query,
+    "anthropic": backend_litellm.query,
+    "openrouter": backend_litellm.query,
+    "gemini": backend_litellm.query,
 }
 
 

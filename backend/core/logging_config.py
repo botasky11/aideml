@@ -31,7 +31,7 @@ def setup_logging() -> None:
     
     for logger_name in loggers_to_configure:
         logger = logging.getLogger(logger_name)
-        logger.setLevel(logging.INFO)
+        logger.setLevel(logging.DEBUG)
         logger.propagate = True  # Ensure logs propagate to root logger
     
     # Reduce noise from some third-party libraries

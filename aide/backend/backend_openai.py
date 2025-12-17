@@ -67,6 +67,7 @@ def query(
     if (
         re.match(r"^o\d", filtered_kwargs["model"])
         or filtered_kwargs["model"] == "codex-mini-latest"
+        or filtered_kwargs["model"] == "gpt-5.2"
     ):
         filtered_kwargs.pop("temperature", None)
 
